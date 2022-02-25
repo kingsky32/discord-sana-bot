@@ -1,0 +1,19 @@
+{
+  "name": "discord-sana-bot",
+  "version": "0.0.1",
+  "description": "discord-sana-bot",
+  "main": "index.js",
+  "repository": "git@github.com:kingsky32/discrod-sana-bot.git",
+  "author": "Seung Ju <kingsky32@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "node .",
+    "dev": "nodemon ."
+  },
+  "devDependencies": {
+    "prettier": "^2.5.1"
+  },
+  "dependencies": {
+    "discord-bot-server": "^0.0.2"
+  }
+}
