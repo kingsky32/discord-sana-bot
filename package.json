@@ -7,6 +7,8 @@
   "author": "Seung Ju <kingsky32@gmail.com>",
   "license": "MIT",
   "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean",
     "start": "node ./dist",
     "dev": "nodemon ./dist"
   },
