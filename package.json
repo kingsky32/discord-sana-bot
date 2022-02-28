@@ -20,7 +20,7 @@
     "@discordjs/voice": "^0.8.0",
     "axios": "^0.26.0",
     "crypto": "^1.0.1",
-    "discord-bot-server": "^0.0.18",
+    "discord-bot-server": "^0.0.20",
     "ffmpeg-static": "^4.4.1",
     "libsodium-wrappers": "^0.7.9",
     "moment": "^2.29.1",

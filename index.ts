@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Intents, ControllerAction, createDiscordBot, Guild, Message } from 'discord-bot-server';
+import { Intents, ControllerAction, createDiscordBot, Guild, Message, Client, Channel } from 'discord-bot-server';
 import {
   AudioResource,
   createAudioPlayer,
@@ -26,6 +26,9 @@ interface Music {
 interface ServerMusic {
   list: Music[];
   history: Music[];
+  playTime: number;
+  _timeout?: NodeJS.Timeout;
+  _playTimeInterval?: NodeJS.Timer;
 }
 
 interface Server extends Guild {
@@ -39,32 +42,30 @@ const audioPlayer = createAudioPlayer({
   },
 });
 
-function leaveBot(message: Message): boolean {
-  if (message.guildId) {
-    const connection = getVoiceConnection(message.guildId);
-    if (connection) {
-      connection?.destroy();
-      return true;
-    } else {
-      return false;
-    }
+function onLeaveBot(guildId: string): boolean {
+  const connection = getVoiceConnection(guildId);
+  if (connection) {
+    connection?.destroy();
+    return true;
   }
   return false;
 }
 
-function skipMusic(message: Message, server: Server, isSkip: boolean = false): boolean {
+function onSkipMusic(message: Message, server: Server): boolean {
   if (server.music) {
-    if (isSkip) {
-      server.music.list[0].status = 'SKIP';
-    } else {
-      server.music.list[0].status = 'DONE';
-    }
+    server.music.list[0].status = 'SKIP';
 
     server.music.list.shift();
+    if (server.music._timeout) {
+      clearTimeout(server.music._timeout);
+    }
+    if (server.music._playTimeInterval) {
+      clearInterval(server.music._playTimeInterval);
+    }
 
     // 재생목록이 1개 이상일때
     if (server.music.list.length > 0) {
-      playingMusic(message, server);
+      onPlayMusic(message, server);
 
       return true;
     }
@@ -76,7 +77,33 @@ function skipMusic(message: Message, server: Server, isSkip: boolean = false): b
   return false;
 }
 
-function playingMusic(message: Message, server: Server, musicId?: string) {
+function onNextMusic(message: Message, server: Server): boolean {
+  if (server.music) {
+    server.music.list[0].status = 'DONE';
+
+    server.music.list.shift();
+    if (server.music._timeout) {
+      clearTimeout(server.music._timeout);
+    }
+    if (server.music._playTimeInterval) {
+      clearInterval(server.music._playTimeInterval);
+    }
+
+    // 재생목록이 1개 이상일때
+    if (server.music.list.length > 0) {
+      onPlayMusic(message, server);
+
+      return true;
+    }
+    // 재생목록에 음악이 존재하지 않을 경우
+    else {
+      return false;
+    }
+  }
+  return false;
+}
+
+function onPlayMusic(message: Message, server: Server, musicId?: string) {
   if (server.music) {
     // 재생목록이 1개 이상일 경우
     if (server.music.list.length) {
@@ -101,13 +128,22 @@ function playingMusic(message: Message, server: Server, musicId?: string) {
           if (connection) {
             audioPlayer.play(music.resource);
             connection.subscribe(audioPlayer);
-            setTimeout(() => {
-              const result = skipMusic(message, server);
+            server.music._timeout = setTimeout(() => {
+              const result = onNextMusic(message, server);
               if (!result) {
                 message.channel.send('재생목록에 음악이 존재하지 않아 음성채팅을 떠납니다.');
-                leaveBot(message);
+                if (message.guildId) {
+                  onLeaveBot(message.guildId);
+                }
               }
             }, music.duration * 1000);
+
+            server.music.playTime = 0;
+            server.music._playTimeInterval = setInterval(() => {
+              if (server.music?.playTime) {
+                server.music.playTime = server.music.playTime + 10;
+              }
+            }, 10);
           }
           // 음성채팅에 존재하지 않을 경우
           else {
@@ -134,6 +170,29 @@ function playingMusic(message: Message, server: Server, musicId?: string) {
   }
 }
 
+function onClearMusic(server: Server): boolean {
+  if (server) {
+    if (server.music) {
+      audioPlayer.stop();
+      server.music.list = [];
+      server.music.history = server.music.history.map<Music>((music: Music) => ({
+        ...music,
+        status: 'READY' || 'PLAYING' ? 'SKIP' : music.status,
+      }));
+      if (server.music._timeout) {
+        clearTimeout(server.music._timeout);
+      }
+      if (server.music._playTimeInterval) {
+        clearInterval(server.music._playTimeInterval);
+      }
+      server.music.playTime = 0;
+
+      return true;
+    }
+  }
+  return false;
+}
+
 createDiscordBot({
   clientOptions: {
     intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES],
@@ -147,10 +206,10 @@ createDiscordBot({
   },
   controllers: [
     {
-      command: 'hello',
-      description: '인사를 합니다',
+      command: 'voice list',
+      description: '현재 음성채팅 목록을 조회합니다.',
       action: (controllerAction: ControllerAction): void => {
-        controllerAction.message.channel.send('Hello World!');
+        controllerAction.message.channel.send('개발중 입니다.');
       },
     },
     {
@@ -161,11 +220,40 @@ createDiscordBot({
           const server: Server = controllerAction.servers[controllerAction.message.guild.id];
 
           if (server.music) {
-            controllerAction.message.channel.send(
-              server.music.list.map(({ title }, index) => `${index + 1}. ${title}`).join('\n'),
-            );
+            if (server.music.list.length) {
+              controllerAction.message.channel.send(
+                server.music.list
+                  .map(({ title }, index) => `${index + 1}. ${title}${index === 0 ? ' - (재생중)' : ''}`)
+                  .join('\n'),
+              );
+            } else {
+              controllerAction.message.channel.send('현재 재생중인 음악이 없습니다.');
+            }
           } else {
             controllerAction.message.channel.send('현재 재생중인 음악이 없습니다.');
+          }
+        } else {
+          controllerAction.message.channel.send('그룹이 존재하지 않습니다.');
+        }
+      },
+    },
+    {
+      command: 'music history',
+      description: '재생 히스토리를 봅니다.',
+      action: (controllerAction: ControllerAction): void => {
+        if (controllerAction.message.guild) {
+          const server: Server = controllerAction.servers[controllerAction.message.guild.id];
+
+          if (server.music) {
+            if (server.music.history.length) {
+              controllerAction.message.channel.send(
+                server.music.history.map(({ title }, index) => `${index + 1}. ${title}`).join('\n'),
+              );
+            } else {
+              controllerAction.message.channel.send('재생했던 음악이 없습니다.');
+            }
+          } else {
+            controllerAction.message.channel.send('재생했던 음악이 없습니다.');
           }
         } else {
           controllerAction.message.channel.send('그룹이 존재하지 않습니다.');
@@ -250,6 +338,7 @@ createDiscordBot({
                             server.music = {
                               list: [music],
                               history: [music],
+                              playTime: 0,
                             };
                           }
 
@@ -287,7 +376,7 @@ createDiscordBot({
                                 }
                                 // 재생목록에 리스트가 존재하지 않을때
                                 else {
-                                  playingMusic(controllerAction.message, server);
+                                  onPlayMusic(controllerAction.message, server);
                                 }
                               }
                               // 음악이 존재하지 않을 경우
@@ -341,14 +430,82 @@ createDiscordBot({
       },
     },
     {
+      command: 'music skip',
+      description: '현재 재생중인 음악을 스킵합니다.',
+      action: (controllerAction: ControllerAction) => {
+        if (controllerAction.message.guildId) {
+          controllerAction.message.channel.send('재생중인 음악을 스킵합니다.');
+          onSkipMusic(controllerAction.message, controllerAction.servers[controllerAction.message.guildId]);
+        }
+      },
+    },
+    {
+      command: 'music delete {index}',
+      description: '재생목록에서 음악을 삭제합니다.',
+      action: (controllerAction: ControllerAction) => {
+        // 인덱스가 존재할 때
+        if (controllerAction.variables.index) {
+          // 길드 아이디가 존재할때
+          if (controllerAction.message.guildId) {
+            const server: Server = controllerAction.servers[controllerAction.message.guildId];
+
+            if (server) {
+              const [deletedMusic] = server.music?.list.splice(Number(controllerAction.variables.index) - 1, 1) ?? [];
+
+              // 삭제한 노래가 있을 경우
+              if (deletedMusic) {
+                controllerAction.message.channel.send(
+                  `${controllerAction.variables.index}번 ${deletedMusic.title} 음악이 삭제되었습니다.`,
+                );
+              }
+              // 삭제한 노래가 없을 경우
+              else {
+                controllerAction.message.channel.send('삭제할 음악이 존재하지 않습니다.');
+              }
+            }
+            // 서버가 존재하지 않을 때
+            else {
+              controllerAction.message.channel.send('서버가 존재하지 않습니다.');
+            }
+          }
+          // 길드 아이디가 존재하지 않을때
+          else {
+            controllerAction.message.channel.send('서버가 존재하지 않습니다.');
+          }
+        } else {
+          controllerAction.message.channel.send('인덱스가 존재하지 않습니다.');
+        }
+      },
+    },
+    {
+      command: 'music clear',
+      description: '재생목록을 초기화 합니다.',
+      action: (controllerAction: ControllerAction) => {
+        if (controllerAction.message.guildId) {
+          const server: Server = controllerAction.servers[controllerAction.message.guildId];
+          const result = onClearMusic(server);
+
+          if (result) {
+            controllerAction.message.channel.send('재생목록을 초기화했습니다.');
+          }
+        } else {
+          controllerAction.message.channel.send('길드 아이디가 존재하지 않습니다.');
+        }
+      },
+    },
+    {
       command: 'leave',
       description: '봇이 음성채팅에서 나갑니다',
       action: (controllerAction: ControllerAction): void => {
-        const result = leaveBot(controllerAction.message);
-        if (result) {
-          controllerAction.message.channel.send('봇이 음성채팅에서 나갑니다.');
-        } else {
-          controllerAction.message.channel.send('봇이 음성채팅에 존재하지 않습니다.');
+        if (controllerAction.message.guildId) {
+          const server: Server = controllerAction.servers[controllerAction.message.guildId];
+          const result = onLeaveBot(controllerAction.message.guildId);
+          if (result) {
+            onClearMusic(server);
+            controllerAction.message.channel.send('봇이 음성채팅에서 나갑니다.');
+          } else {
+            controllerAction.message.channel.send('봇이 음성채팅에 존재하지 않습니다.');
+          }
         }
       },
     },

@@ -271,10 +271,10 @@ discord-api-types@^0.27.3:
   resolved "https://registry.yarnpkg.com/discord-api-types/-/discord-api-types-0.27.3.tgz#518e99a548b62a7912a09e94ad90d0612e2053c6"
   integrity sha512-HOG64DTpZ7CB5EU9eKbjHD50H5qG1pxKG8pmFfHUMKjKvEWeLBHfw0c9xF1cruiYLnBb3+n7m3jBWxZ3H1hcgQ==
 
-discord-bot-server@^0.0.18:
-  version "0.0.18"
-  resolved "https://registry.yarnpkg.com/discord-bot-server/-/discord-bot-server-0.0.18.tgz#a187494662b07e591aa325c4790f5c75bc449481"
-  integrity sha512-PKymdFwB2IdBXAZs8e/Hw0LTNbiOZgKWe61LSkl1qBHOhljVbmDe2vOW647oBBNnn4QixBhfG7/GCiIR9T3xxw==
+discord-bot-server@^0.0.20:
+  version "0.0.20"
+  resolved "https://registry.yarnpkg.com/discord-bot-server/-/discord-bot-server-0.0.20.tgz#f0b6048f228c6609191af8cc23c707280ffe7a44"
+  integrity sha512-0iySN1fb2JrmV4eFXJnI5YfL+mGOhaVSru2eIdBUpJno/q6taHoQcTi4jQ2egEFyJJA+p2qcnlYosFvfjd166A==
   dependencies:
     "@discordjs/builders" "^0.12.0"
     "@discordjs/rest" "^0.3.0"
