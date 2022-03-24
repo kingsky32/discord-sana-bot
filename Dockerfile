@@ -4,4 +4,4 @@ COPY . .
 RUN yarn install --frozen-lockfile
 RUN yarn build
 
-CMD ["node", "./dist"]
+CMD ["yarn", "start"]
