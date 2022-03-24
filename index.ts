@@ -1,14 +1,5 @@
 import axios from 'axios';
-import {
-  Intents,
-  ControllerAction,
-  createDiscordBot,
-  Guild,
-  Message,
-  Client,
-  Channel,
-  AnyChannel,
-} from 'discord-bot-server';
+import { Intents, ControllerAction, createDiscordBot, Guild, Message, Client } from 'discord-bot-server';
 import {
   AudioResource,
   createAudioPlayer,
