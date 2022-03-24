@@ -1,5 +1,14 @@
 import axios from 'axios';
-import { Intents, ControllerAction, createDiscordBot, Guild, Message, Client, Channel } from 'discord-bot-server';
+import {
+  Intents,
+  ControllerAction,
+  createDiscordBot,
+  Guild,
+  Message,
+  Client,
+  Channel,
+  AnyChannel,
+} from 'discord-bot-server';
 import {
   AudioResource,
   createAudioPlayer,
@@ -12,6 +21,8 @@ import ytdl from 'ytdl-core';
 import fs from 'fs';
 import crypto from 'crypto';
 import moment from 'moment';
+
+const pjson = require('./package.json');
 
 type MusicStatus = 'PLAYING' | 'DONE' | 'SKIP' | 'READY' | 'DOWNLOAD' | 'ERROR';
 
@@ -33,6 +44,14 @@ interface ServerMusic {
 
 interface Server extends Guild {
   music?: ServerMusic;
+}
+
+if (!process.env.DISCORD_BOT_TOKEN) {
+  throw Error('must require DISCORD_BOT_TOKEN');
+}
+
+if (!process.env.CLIENT_ID) {
+  throw Error('must require CLIENT_ID');
 }
 
 const audioPlayer = createAudioPlayer({
@@ -197,23 +216,40 @@ createDiscordBot({
   clientOptions: {
     intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.GUILD_VOICE_STATES],
   },
-  token: process.env.DISCORD_BOT_TOKEN ?? '',
-  clientId: process.env.CLIENT_ID ?? '',
+  token: process.env.DISCORD_BOT_TOKEN,
+  clientId: process.env.CLIENT_ID,
   commands: [],
+  onReady(client: Client) {
+    client.guilds.cache.forEach((guild: Guild): void => {
+      guild.channels.cache.forEach((channel: any): void => {
+        if (channel?.send) {
+          channel.send(
+            `사나DJ봇이 업데이트 되었어요, (v${pjson.version})\n` +
+              '#### 업데이트 내역 ####\n' +
+              '1. 커맨드 단축해서 쓸 수 있어요 자세한 내용은 ~help 명령어로 확인해주세요\n' +
+              '2. 후원번호를 열었어요 후원은 01052363219 지금 이 번호로 전화해줘\n' +
+              '##############\n' +
+              '많은 사랑과 관심이 쾌적한 봇 환경을 만듭니다 gg요',
+          );
+          return;
+        }
+      });
+    });
+  },
   controllerConfig: {
     prefix: '~',
     helpTitle: '사나쇼DJ봇 설명서',
   },
   controllers: [
     {
-      command: 'voice list',
+      command: ['voice list', 'vl'],
       description: '현재 음성채팅 목록을 조회합니다.',
       action: (controllerAction: ControllerAction): void => {
         controllerAction.message.channel.send('개발중 입니다.');
       },
     },
     {
-      command: 'music list',
+      command: ['music list', 'ml'],
       description: '현재 재생목록을 봅니다.',
       action: (controllerAction: ControllerAction): void => {
         if (controllerAction.message.guild) {
@@ -238,7 +274,7 @@ createDiscordBot({
       },
     },
     {
-      command: 'music history',
+      command: ['music history', 'mh'],
       description: '재생 히스토리를 봅니다.',
       action: (controllerAction: ControllerAction): void => {
         if (controllerAction.message.guild) {
@@ -261,7 +297,7 @@ createDiscordBot({
       },
     },
     {
-      command: 'music play {keyword}',
+      command: ['music play {keyword}', 'mp {keyword}'],
       description: '노래를 재생합니다',
       action: (controllerAction: ControllerAction): void => {
         // 길드 id가 존재할 경우
@@ -430,7 +466,7 @@ createDiscordBot({
       },
     },
     {
-      command: 'music skip',
+      command: ['music skip', 'ms'],
       description: '현재 재생중인 음악을 스킵합니다.',
       action: (controllerAction: ControllerAction) => {
         if (controllerAction.message.guildId) {
@@ -440,7 +476,7 @@ createDiscordBot({
       },
     },
     {
-      command: 'music delete {index}',
+      command: ['music delete {index}', 'md {index}'],
       description: '재생목록에서 음악을 삭제합니다.',
       action: (controllerAction: ControllerAction) => {
         // 인덱스가 존재할 때
@@ -478,7 +514,7 @@ createDiscordBot({
       },
     },
     {
-      command: 'music clear',
+      command: ['music clear', 'mc'],
       description: '재생목록을 초기화 합니다.',
       action: (controllerAction: ControllerAction) => {
         if (controllerAction.message.guildId) {
@@ -494,7 +530,7 @@ createDiscordBot({
       },
     },
     {
-      command: 'leave',
+      command: ['leave', 'l'],
       description: '봇이 음성채팅에서 나갑니다',
       action: (controllerAction: ControllerAction): void => {
         if (controllerAction.message.guildId) {
