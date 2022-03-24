@@ -22,8 +22,6 @@ import fs from 'fs';
 import crypto from 'crypto';
 import moment from 'moment';
 
-const pjson = require('./package.json');
-
 type MusicStatus = 'PLAYING' | 'DONE' | 'SKIP' | 'READY' | 'DOWNLOAD' | 'ERROR';
 
 interface Music {
@@ -224,7 +222,7 @@ createDiscordBot({
       guild.channels.cache.forEach((channel: any): void => {
         if (channel?.send) {
           channel.send(
-            `사나DJ봇이 업데이트 되었어요, (v${pjson.version})\n` +
+            `사나DJ봇이 업데이트 되었어요, (v${process.env.npm_package_version})\n` +
               '#### 업데이트 내역 ####\n' +
               '1. 커맨드 단축해서 쓸 수 있어요 자세한 내용은 ~help 명령어로 확인해주세요\n' +
               '2. 후원번호를 열었어요 후원은 01052363219 지금 이 번호로 전화해줘\n' +
